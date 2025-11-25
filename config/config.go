@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -87,4 +88,37 @@ func loadFileToEnv(path string) error {
 		}
 	}
 	return nil
+}
+
+// StartLocalBackendsEnabled retorna true se a variável START_LOCAL_BACKENDS estiver definida como "true" (case-insensitive).
+func StartLocalBackendsEnabled() bool {
+	v := os.Getenv("START_LOCAL_BACKENDS")
+	return strings.EqualFold(v, "true")
+}
+
+// GetLocalBackendStartPort retorna a porta inicial para backends locais (LOCAL_BACKEND_START_PORT), fallback 8081.
+func GetLocalBackendStartPort() int {
+	if s := os.Getenv("LOCAL_BACKEND_START_PORT"); s != "" {
+		if p, err := strconv.Atoi(s); err == nil {
+			return p
+		}
+	}
+	return 8081
+}
+
+// GetLocalBackendCount retorna quantos backends locais iniciar (LOCAL_BACKEND_COUNT), fallback 3.
+func GetLocalBackendCount() int {
+	if s := os.Getenv("LOCAL_BACKEND_COUNT"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil {
+			return n
+		}
+	}
+	return 3
+}
+
+// GetLocalBackendForce retorna true se LOCAL_BACKEND_FORCE estiver definida como "true".
+// Quando true, os backends locais substituem qualquer BACKEND_URLS configurado.
+func GetLocalBackendForce() bool {
+	v := os.Getenv("LOCAL_BACKEND_FORCE")
+	return strings.EqualFold(v, "true")
 }
