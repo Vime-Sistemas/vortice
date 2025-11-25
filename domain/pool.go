@@ -194,3 +194,12 @@ func (s *ServerPool) StartHealthCheck() {
 		}
 	}
 }
+
+// BackendURLs returns the list of backend URLs (string form).
+func (s *ServerPool) BackendURLs() []string {
+	out := make([]string, 0, len(s.backends))
+	for _, b := range s.backends {
+		out = append(out, b.URL.String())
+	}
+	return out
+}

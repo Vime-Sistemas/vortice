@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/Vime-Sistemas/vortice/config"
@@ -115,7 +119,117 @@ func main() {
 	}
 
 	log.Printf("🌀 Vortice iniciado na porta %s", port)
+	interactive := strings.ToLower(os.Getenv("INTERACTIVE")) == "true"
+	if interactive {
+		// run HTTP server in background and keep REPL in foreground
+		go func() {
+			if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				log.Fatalf("server error: %v", err)
+			}
+		}()
+		runInteractive(serverPool)
+		return
+	}
+
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// runInteractive runs a simple REPL allowing commands to inspect stats/backends.
+func runInteractive(serverPool *domain.ServerPool) {
+	// ASCII header
+	fmt.Println("========================================")
+	fmt.Println(" Vortice - interactive console")
+	fmt.Println(" Commands: stats | backends | watch <s> | help | exit")
+	fmt.Println("========================================")
+
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		fmt.Print("vortice> ")
+		if !scanner.Scan() {
+			fmt.Println("\nEOF — saindo")
+			return
+		}
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		parts := strings.Fields(line)
+		cmd := strings.ToLower(parts[0])
+		switch cmd {
+		case "help":
+			fmt.Println("Commands:")
+			fmt.Println("  stats         - show stats snapshot as table")
+			fmt.Println("  backends      - list configured backends")
+			fmt.Println("  watch <secs>  - refresh stats every <secs> seconds (ctrl+C to stop)")
+			fmt.Println("  exit          - quit interactive console")
+		case "backends":
+			urls := serverPool.BackendURLs()
+			if len(urls) == 0 {
+				fmt.Println("(no backends configured)")
+				continue
+			}
+			for i, u := range urls {
+				fmt.Printf("%d. %s\n", i+1, u)
+			}
+		case "stats":
+			printStatsTable()
+		case "watch":
+			secs := 2
+			if len(parts) > 1 {
+				if v, err := fmt.Sscanf(parts[1], "%d", &secs); err != nil || v == 0 {
+					secs = 2
+				}
+			}
+			for {
+				printStatsTable()
+				time.Sleep(time.Duration(secs) * time.Second)
+			}
+		case "exit", "quit":
+			fmt.Println("Saindo...")
+			return
+		default:
+			fmt.Printf("Comando desconhecido: %s (use 'help')\n", cmd)
+		}
+	}
+}
+
+func printStatsTable() {
+	snap := stats.SnapshotAll()
+	if len(snap) == 0 {
+		fmt.Println("(no stats available)")
+		return
+	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 8, 2, ' ', 0)
+	fmt.Fprintln(w, "URL\tREQS\tAVG_MS\tMOST_PORT\tSTATUS_COUNTS")
+	// deterministic order
+	urls := make([]string, 0, len(snap))
+	for u := range snap {
+		urls = append(urls, u)
+	}
+	// sort for deterministic output
+	// lightweight sort
+	for i := 0; i < len(urls)-1; i++ {
+		for j := i + 1; j < len(urls); j++ {
+			if urls[i] > urls[j] {
+				urls[i], urls[j] = urls[j], urls[i]
+			}
+		}
+	}
+	for _, u := range urls {
+		s := snap[u]
+		// format status counts compactly
+		scs := ""
+		first := true
+		for k, v := range s.StatusCounts {
+			if !first {
+				scs += ","
+			}
+			scs += fmt.Sprintf("%d=%d", k, v)
+			first = false
+		}
+		fmt.Fprintf(w, "%s\t%d\t%.2f\t%s\t%s\n", s.URL, s.Requests, s.AvgLatencyMs, s.MostFamousPort, scs)
+	}
+	_ = w.Flush()
 }
