@@ -36,12 +36,11 @@ $env:APP_PORT = '8080'
 ./main.exe
 ```
 
-## Inicializador interativo (.env.local)
+## Inicializador interativo
 
 O repositório inclui um script que gera um arquivo `.env.local` com as variáveis de ambiente necessárias para rodar o projeto em modo de desenvolvimento.
 
 - Script: `scripts/init_env.py` (Python 3)
-- Objetivo: perguntar ao usuário valores como porta da aplicação, se deve iniciar backends locais, algoritmo de balanceamento e rate-limits, e gravar um `.env.local` pronto.
 
 Como usar (PowerShell):
 
@@ -142,12 +141,12 @@ $env:IP_HASH_HEADER='X-Forwarded-For'
 ## Testes
 
 ```powershell
-go test ./domain -v
+go test ./... -v
 ```
 
 ## Usando como módulo
 
-Se você preferir usar o load balancer como uma biblioteca em outro projeto, importe os pacotes usando o módulo público:
+Se você preferir usar o Vortice como uma biblioteca em outro projeto, importe os pacotes usando o módulo público:
 
 ```go
 import "github.com/Vime-Sistemas/vortice/domain"
@@ -165,10 +164,4 @@ replace github.com/Vime-Sistemas/vortice => ../path/to/vortice
 ```
 
 Exemplo de uso programático está em `examples/simple/main.go`.
-
-## Observações operacionais
-
-- Em produção, prefira manter `START_LOCAL_BACKENDS=false` e usar serviços dedicados para backends.
-- `ip_hash` depende do endereço remoto ou do header. Quando há proxies na frente, defina `IP_HASH_HEADER` adequadamente.
-- `BACKEND_RATE_LIMITS` é posicional — se preferir configuração por URL (map), posso adicionar suporte para `URL=RPS/BURST` no futuro.
 
