@@ -17,6 +17,33 @@ import (
 	"github.com/Vime-Sistemas/vortice/stats"
 )
 
+// replEnabled toggles special REPL-aware log output.
+var replEnabled = false
+var replPrompt = "vortice> "
+
+type replWriter struct{}
+
+func (rw replWriter) Write(p []byte) (int, error) {
+	// In interactive mode, ensure the log message starts on a new line
+	if replEnabled {
+		_, _ = os.Stderr.Write([]byte("\n"))
+	}
+	// write original log bytes to stderr
+	n, err := os.Stderr.Write(p)
+	if err != nil {
+		return n, err
+	}
+	// ensure newline after the log message
+	if len(p) == 0 || p[len(p)-1] != '\n' {
+		_, _ = os.Stderr.Write([]byte("\n"))
+	}
+	// if REPL is enabled, reprint prompt to stdout so user can continue typing
+	if replEnabled {
+		_, _ = os.Stdout.Write([]byte(replPrompt))
+	}
+	return n, nil
+}
+
 // NewProxyPool creates a ServerPool configured with the provided backend URLs,
 // algorithm, per-backend rate limits and optional ip-hash header.
 func NewProxyPool(serverList []string, algo string, per [][2]int, ipHashHeader string) *domain.ServerPool {
@@ -120,6 +147,13 @@ func main() {
 
 	log.Printf("🌀 Vortice iniciado na porta %s", port)
 	interactive := strings.ToLower(os.Getenv("INTERACTIVE")) == "true"
+	// if interactive, replace the default logger output so log lines don't
+	// clobber the REPL prompt: the custom writer will reprint the prompt
+	// after every log write when interactive mode is active.
+	if interactive {
+		replEnabled = true
+		log.SetOutput(replWriter{})
+	}
 	if interactive {
 		// run HTTP server in background and keep REPL in foreground
 		go func() {
@@ -140,13 +174,13 @@ func main() {
 func runInteractive(serverPool *domain.ServerPool) {
 	// ASCII header
 	fmt.Println("========================================")
-	fmt.Println(" Vortice - interactive console")
-	fmt.Println(" Commands: stats | backends | watch <s> | help | exit")
+	fmt.Println(" Vortice - console interativo")
+	fmt.Println(" Comandos: stats | backends | watch <s> | help | exit")
 	fmt.Println("========================================")
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
-		fmt.Print("vortice> ")
+		fmt.Print(replPrompt)
 		if !scanner.Scan() {
 			fmt.Println("\nEOF — saindo")
 			return
@@ -159,11 +193,11 @@ func runInteractive(serverPool *domain.ServerPool) {
 		cmd := strings.ToLower(parts[0])
 		switch cmd {
 		case "help":
-			fmt.Println("Commands:")
-			fmt.Println("  stats         - show stats snapshot as table")
-			fmt.Println("  backends      - list configured backends")
-			fmt.Println("  watch <secs>  - refresh stats every <secs> seconds (ctrl+C to stop)")
-			fmt.Println("  exit          - quit interactive console")
+			fmt.Println("Comandos:")
+			fmt.Println("  stats         - mostrar snapshot de estatísticas como tabela")
+			fmt.Println("  backends      - listar backends configurados")
+			fmt.Println("  watch <secs>  - atualizar estatísticas a cada <secs> segundos (ctrl+C para parar)")
+			fmt.Println("  exit          - sair da console interativa")
 		case "backends":
 			urls := serverPool.BackendURLs()
 			if len(urls) == 0 {
