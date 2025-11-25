@@ -20,6 +20,11 @@ func main() {
 	if config.StartLocalBackendsEnabled() {
 		cnt := config.GetLocalBackendCount()
 		startPort := config.GetLocalBackendStartPort()
+		// If forced, ignore configured BACKEND_URLS and use only local backends
+		if config.GetLocalBackendForce() {
+			log.Println("LOCAL_BACKEND_FORCE=true: backend local irá substituir BACKEND_URLS configurado")
+			serverList = []string{}
+		}
 
 		// build a set of already configured urls to avoid duplicates
 		seen := make(map[string]bool)
@@ -44,7 +49,7 @@ func main() {
 				})
 				srv := &http.Server{Addr: fmt.Sprintf(":%d", port), Handler: mux}
 				if err := srv.ListenAndServe(); err != nil {
-					log.Printf("local backend on %d stopped: %v", port, err)
+					log.Printf("backend local em %d parado: %v", port, err)
 				}
 			}(p)
 
@@ -55,7 +60,7 @@ func main() {
 				started++
 			}
 		}
-		log.Printf("Started %d local backends starting at %d (attempted %d)", started, startPort, cnt)
+		log.Printf("Backend local iniciados: %d, porta inicial: %d, tentados: %d", started, startPort, cnt)
 	}
 
 	serverPool := &domain.ServerPool{}
