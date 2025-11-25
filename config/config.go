@@ -150,3 +150,56 @@ func GetRateLimitBurst() int {
 	}
 	return 1
 }
+
+// GetIPHashHeader retorna o nome do header a ser usado para ip_hash (ex: "X-Forwarded-For").
+// Se vazio, usa RemoteAddr.
+func GetIPHashHeader() string {
+	return os.Getenv("IP_HASH_HEADER")
+}
+
+// GetPerBackendRateLimits parses BACKEND_RATE_LIMITS no formato "rps/burst,rps/burst,...".
+// Retorna um slice de pares [][2]int com (rps, burst) para cada backend; se fewer entries,
+// preenche com os valores globais de RATE_LIMIT_RPS e RATE_LIMIT_BURST.
+func GetPerBackendRateLimits(n int) [][2]int {
+	out := make([][2]int, 0, n)
+	globalRPS := GetRateLimitRPS()
+	globalBurst := GetRateLimitBurst()
+	s := os.Getenv("BACKEND_RATE_LIMITS")
+	if s == "" {
+		for i := 0; i < n; i++ {
+			out = append(out, [2]int{globalRPS, globalBurst})
+		}
+		return out
+	}
+	parts := strings.Split(s, ",")
+	for i := 0; i < n; i++ {
+		if i < len(parts) {
+			p := strings.TrimSpace(parts[i])
+			if p == "" {
+				out = append(out, [2]int{globalRPS, globalBurst})
+				continue
+			}
+			// parse rps/burst
+			if idx := strings.IndexByte(p, '/'); idx > 0 {
+				rpsStr := strings.TrimSpace(p[:idx])
+				burstStr := strings.TrimSpace(p[idx+1:])
+				rps, err1 := strconv.Atoi(rpsStr)
+				burst, err2 := strconv.Atoi(burstStr)
+				if err1 == nil && err2 == nil {
+					out = append(out, [2]int{rps, burst})
+					continue
+				}
+			}
+			// fallback: try parse single number as rps
+			if rps, err := strconv.Atoi(p); err == nil {
+				out = append(out, [2]int{rps, globalBurst})
+				continue
+			}
+			// invalid, use global defaults
+			out = append(out, [2]int{globalRPS, globalBurst})
+		} else {
+			out = append(out, [2]int{globalRPS, globalBurst})
+		}
+	}
+	return out
+}

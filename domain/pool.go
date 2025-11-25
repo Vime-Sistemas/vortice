@@ -15,6 +15,8 @@ type ServerPool struct {
 	current  uint64
 	// Algorithm pode ser: "round_robin", "least_conn", "random", "ip_hash"
 	Algorithm string
+	// IPHashHeader, se não vazio, indica o header a ser usado para ip_hash (ex: X-Forwarded-For)
+	IPHashHeader string
 }
 
 func (s *ServerPool) AddBackend(b *Backend) {
@@ -55,14 +57,40 @@ func (s *ServerPool) GetNextPeer(r *http.Request) *Backend {
 		}
 		return alive[rand.Intn(len(alive))]
 	case "ip_hash":
-		// hash remote ip to pick backend
-		host := r.RemoteAddr
+		// hash remote ip or header to pick backend
+		var key string
+		if s.IPHashHeader != "" {
+			if r != nil {
+				key = r.Header.Get(s.IPHashHeader)
+			}
+		} else if r != nil {
+			key = r.RemoteAddr
+		}
+		if key == "" {
+			// fallback to round-robin when no key available
+			next := s.NextIndex()
+			l := len(s.backends) + s.NextIndex()
+			for i := next; i < l; i++ {
+				idx := i % len(s.backends)
+				if s.backends[idx].IsAlive() {
+					if i != next {
+						atomic.StoreUint64(&s.current, uint64(idx))
+					}
+					return s.backends[idx]
+				}
+			}
+			return nil
+		}
+		// if header contains multiple ips (X-Forwarded-For), take first
+		if idxc := strings.Index(key, ","); idxc != -1 {
+			key = strings.TrimSpace(key[:idxc])
+		}
 		// remove port if present
-		if idx := strings.LastIndex(host, ":"); idx != -1 {
-			host = host[:idx]
+		if idx := strings.LastIndex(key, ":"); idx != -1 {
+			key = key[:idx]
 		}
 		h := fnv.New32a()
-		h.Write([]byte(host))
+		h.Write([]byte(key))
 		idx := int(h.Sum32()) % len(s.backends)
 		// find next alive starting from idx
 		for i := 0; i < len(s.backends); i++ {
