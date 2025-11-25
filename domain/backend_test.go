@@ -8,7 +8,7 @@ import (
 )
 
 func TestBackend_SetAlive(t *testing.T) {
-	b := NewBackend("http://localhost:8080")
+	b := NewBackend("http://localhost:8080", 0, 1)
 
 	// Default should be true
 	if !b.IsAlive() {
@@ -31,7 +31,7 @@ func TestBackend_CheckHealth(t *testing.T) {
 
 	// 2. Point our backend to the dummy server
 	backendUrl, _ := url.Parse(server.URL)
-	b := NewBackend(backendUrl.String())
+	b := NewBackend(backendUrl.String(), 0, 1)
 
 	// 3. Should return true
 	if !b.CheckHealth() {
@@ -39,7 +39,7 @@ func TestBackend_CheckHealth(t *testing.T) {
 	}
 
 	// 4. Test a fake port (should fail)
-	deadBackend := NewBackend("http://localhost:9999")
+	deadBackend := NewBackend("http://localhost:9999", 0, 1)
 	if deadBackend.CheckHealth() {
 		t.Error("Backend deveria estar inativo para porta morta")
 	}
@@ -54,7 +54,7 @@ func TestReverseProxy_Success(t *testing.T) {
 	defer server.Close()
 
 	// create backend pointing to the dummy server
-	b := NewBackend(server.URL)
+	b := NewBackend(server.URL, 0, 1)
 
 	// perform a proxy request
 	req := httptest.NewRequest("GET", "/", nil)
@@ -72,7 +72,7 @@ func TestReverseProxy_Success(t *testing.T) {
 
 func TestReverseProxy_ErrorHandler(t *testing.T) {
 	// create backend pointing to an unreachable port to trigger ErrorHandler
-	b := NewBackend("http://localhost:9999")
+	b := NewBackend("http://localhost:9999", 0, 1)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()

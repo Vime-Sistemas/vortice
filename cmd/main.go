@@ -67,14 +67,19 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	// create server pool with chosen algorithm
-	serverPool := &domain.ServerPool{Algorithm: config.GetLBAlgorithm()}
+	// create server pool with chosen algorithm and ip hash header
+	serverPool := &domain.ServerPool{Algorithm: config.GetLBAlgorithm(), IPHashHeader: config.GetIPHashHeader()}
 
-	rateRPS := config.GetRateLimitRPS()
-	burst := config.GetRateLimitBurst()
-
-	for _, u := range serverList {
-		be := domain.NewBackend(u, rateRPS, burst)
+	// determine per-backend rate limits (overrides global when provided)
+	per := config.GetPerBackendRateLimits(len(serverList))
+	for i, u := range serverList {
+		rps := 0
+		burst := 1
+		if i < len(per) {
+			rps = per[i][0]
+			burst = per[i][1]
+		}
+		be := domain.NewBackend(u, rps, burst)
 		serverPool.AddBackend(be)
 	}
 	log.Printf("Backends: %v", serverList)

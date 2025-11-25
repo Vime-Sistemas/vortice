@@ -8,9 +8,9 @@ func TestServerPool_GetNextPeer(t *testing.T) {
 	pool := &ServerPool{}
 
 	// Create 3 backends
-	b1 := NewBackend("http://localhost:8081")
-	b2 := NewBackend("http://localhost:8082")
-	b3 := NewBackend("http://localhost:8083")
+	b1 := NewBackend("http://localhost:8081", 0, 1)
+	b2 := NewBackend("http://localhost:8082", 0, 1)
+	b3 := NewBackend("http://localhost:8083", 0, 1)
 
 	pool.AddBackend(b1)
 	pool.AddBackend(b2)
@@ -20,7 +20,7 @@ func TestServerPool_GetNextPeer(t *testing.T) {
 	// Note: The logic usually increments BEFORE returning,
 	// or relies on initial state. Let's trace it.
 
-	peer := pool.GetNextPeer()
+	peer := pool.GetNextPeer(nil)
 	if peer != b1 && peer != b2 && peer != b3 {
 		t.Error("Deveria retornar um backend válido")
 	}
@@ -33,9 +33,9 @@ func TestServerPool_GetNextPeer(t *testing.T) {
 func TestServerPool_SkipDeadServer(t *testing.T) {
 	pool := &ServerPool{}
 
-	b1 := NewBackend("http://localhost:8081")
-	b2 := NewBackend("http://localhost:8082") // We will kill this one
-	b3 := NewBackend("http://localhost:8083")
+	b1 := NewBackend("http://localhost:8081", 0, 1)
+	b2 := NewBackend("http://localhost:8082", 0, 1) // We will kill this one
+	b3 := NewBackend("http://localhost:8083", 0, 1)
 
 	pool.AddBackend(b1)
 	pool.AddBackend(b2)
@@ -46,7 +46,7 @@ func TestServerPool_SkipDeadServer(t *testing.T) {
 
 	// Loop enough times to ensure we hit the index for b2 and skip it
 	for i := 0; i < 10; i++ {
-		peer := pool.GetNextPeer()
+		peer := pool.GetNextPeer(nil)
 		if peer == b2 {
 			t.Error("Balancer retornou um backend inativo")
 		}
@@ -58,11 +58,11 @@ func TestServerPool_SkipDeadServer(t *testing.T) {
 
 func TestServerPool_AllDead(t *testing.T) {
 	pool := &ServerPool{}
-	b1 := NewBackend("http://localhost:8081")
+	b1 := NewBackend("http://localhost:8081", 0, 1)
 	b1.SetAlive(false)
 	pool.AddBackend(b1)
 
-	peer := pool.GetNextPeer()
+	peer := pool.GetNextPeer(nil)
 	if peer != nil {
 		t.Error("Deveria retornar nil quando todos os backends estiverem inativos")
 	}
