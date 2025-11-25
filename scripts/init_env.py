@@ -17,6 +17,10 @@ import argparse
 import os
 import textwrap
 import sys
+import subprocess
+import threading
+import time
+import shutil
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT_FILE = os.path.join(ROOT, '.env.local')
@@ -155,9 +159,96 @@ def main():
         sys.exit(1)
 
     content = write_env_file(OUT_FILE, values)
-    print(f"Wrote {OUT_FILE}")
-    print('\nYou can now run:')
+    print(f"Escrito {OUT_FILE}")
+    print('\nVocê pode agora executar:')
     print('  $env:INTERACTIVE=\"true\"; go run ./cmd')
+
+    # Pergunta para iniciar o Vortice agora
+    if confirm('Deseja iniciar o Vortice agora?', True, yes):
+        # helper spinner
+        def spinner(msg, stop_event):
+            chars = ['|', '/', '-', '\\']
+            i = 0
+            while not stop_event.is_set():
+                print(f"\r{msg} {chars[i%len(chars)]}", end='', flush=True)
+                time.sleep(0.12)
+                i += 1
+            print('\r' + ' '*(len(msg)+4) + '\r', end='', flush=True)
+
+        # run a command with spinner, capture output; return (rc, out, err)
+        def run_cmd(cmd, cwd=None):
+            stop = threading.Event()
+            t = threading.Thread(target=spinner, args=(f"Executando: {' '.join(cmd)}", stop))
+            t.start()
+            try:
+                proc = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                return (proc.returncode, proc.stdout.decode('utf-8', errors='replace'), proc.stderr.decode('utf-8', errors='replace'))
+            finally:
+                stop.set()
+                t.join()
+
+        # ensure `go` is available
+        if not shutil.which('go'):
+            print('Go não encontrado no PATH. Instale o Go para prosseguir.')
+            sys.exit(1)
+
+        # 1) Run tests
+        print('Executando suíte de testes...')
+        rc, out, err = run_cmd(['go', 'test', './...'])
+        if rc != 0:
+            print('Testes falharam. Saída:')
+            print(out)
+            print(err)
+            sys.exit(rc)
+        print('Testes passaram.')
+
+        # 2) Build
+        print('Compilando o binário...')
+        bin_name = 'vortice.exe' if os.name == 'nt' else 'vortice'
+        rc, out, err = run_cmd(['go', 'build', '-o', bin_name, './cmd/main.go'])
+        if rc != 0:
+            print('Build falhou. Saída:')
+            print(out)
+            print(err)
+            sys.exit(rc)
+        print(f'Build concluído: ./{bin_name}')
+
+        # 3) Execute
+        interactive_mode = values.get('INTERACTIVE', 'false').lower() == 'true'
+        bin_path = os.path.join(ROOT, bin_name)
+        print('Iniciando Vortice...')
+        if interactive_mode:
+            # Attach to terminal so REPL works and logs are visible
+            print('Modo interativo ativado — passando controle ao processo (Ctrl+C para sair).')
+            try:
+                # Use subprocess.Popen to run the binary, inheriting stdin/stdout/stderr
+                proc = subprocess.Popen([bin_path], stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
+                proc.wait()
+            except Exception as e:
+                print(f'Erro ao executar o binário: {e}')
+                sys.exit(1)
+        else:
+            # Run with stdout/stderr suppressed, show spinner while running
+            def run_and_wait():
+                with open(os.devnull, 'wb') as devnull:
+                    proc = subprocess.Popen([bin_path], stdout=devnull, stderr=devnull)
+                    try:
+                        while proc.poll() is None:
+                            time.sleep(0.5)
+                    except KeyboardInterrupt:
+                        proc.terminate()
+                        proc.wait()
+
+            t_run = threading.Thread(target=run_and_wait, daemon=True)
+            t_run.start()
+            try:
+                # show a simple waiting message
+                print('Vortice iniciado em modo não interativo (logs suprimidos). Pressione Ctrl+C para parar.')
+                while t_run.is_alive():
+                    time.sleep(0.5)
+            except KeyboardInterrupt:
+                print('\nInterrompendo...')
+            sys.exit(0)
 
 
 if __name__ == '__main__':

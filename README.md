@@ -36,6 +36,37 @@ $env:APP_PORT = '8080'
 ./main.exe
 ```
 
+## Inicializador interativo (.env.local)
+
+O repositório inclui um script que gera um arquivo `.env.local` com as variáveis de ambiente necessárias para rodar o projeto em modo de desenvolvimento.
+
+- Script: `scripts/init_env.py` (Python 3)
+- Objetivo: perguntar ao usuário valores como porta da aplicação, se deve iniciar backends locais, algoritmo de balanceamento e rate-limits, e gravar um `.env.local` pronto.
+
+Como usar (PowerShell):
+
+1) Modo interativo (perguntas):
+```powershell
+cd C:\Users\Parceiros\vime\lab\libs\vortice
+python .\scripts\init_env.py
+```
+
+2) Aceitar padrões (não interativo):
+```powershell
+python .\scripts\init_env.py --yes
+```
+
+Exemplo de uso após gerar o arquivo:
+```powershell
+$env:INTERACTIVE="true"; go run ./cmd
+```
+
+Observações:
+- O script pede confirmação antes de sobrescrever um `.env.local` existente.
+- O `.env.local` é recomendado para desenvolvimento local — em produção prefira gerenciar variáveis pelo ambiente/infra.
+- Se quiser editar o resultado manualmente, abra `.env.local` no editor de sua preferência.
+
+
 ## Configuração (variáveis de ambiente)
 
 - `BACKEND_URLS` — lista de URLs separadas por vírgula. Ex: `http://host1:8081,http://host2:8082`.
