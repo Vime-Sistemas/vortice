@@ -1,10 +1,10 @@
-Vortice — lightweight Go load balancer
+# Vortice — lightweight Go load balancer
 
-Visão geral
+## Visão geral
 
 Vortice é um pequeno load-balancer escrito em Go para uso em desenvolvimento e ambientes leves. Suporta vários algoritmos de distribuição (round-robin, least_conn, random, ip_hash), health checks, rate-limiting por backend e pode opcionalmente iniciar backends locais para testes.
 
-Build
+## Build
 
 No Windows/PowerShell (no diretório do projeto):
 
@@ -14,7 +14,7 @@ go build ./cmd/main.go
 go build -o vortice.exe ./cmd/main.go
 ```
 
-Execução
+## Execução
 
 Exemplo simples (usar `.env.local` ou variáveis de ambiente):
 
@@ -25,7 +25,7 @@ $env:APP_PORT = '8080'
 ./main.exe
 ```
 
-Configuração (variáveis de ambiente)
+## Configuração (variáveis de ambiente)
 
 - `BACKEND_URLS` — lista de URLs separadas por vírgula. Ex: `http://host1:8081,http://host2:8082`.
 - `APP_PORT` — porta onde o proxy escuta (padrão `8080`).
@@ -36,7 +36,7 @@ Opções para iniciar backends locais (útil para desenvolvimento):
 - `LOCAL_BACKEND_COUNT` — quantos backends iniciar (padrão `3`).
 - `LOCAL_BACKEND_FORCE` — `true|false`. Quando `true`, os backends locais substituem `BACKEND_URLS` configurados.
 
-Algoritmos de balanceamento
+## Algoritmos de balanceamento
 - `LOAD_BALANCER_ALGO` — `round_robin` (padrão), `least_conn`, `random`, `ip_hash`.
   - `round_robin`: rotaciona entre backends ativos.
   - `least_conn`: escolhe o backend com menos conexões ativas.
@@ -44,14 +44,14 @@ Algoritmos de balanceamento
   - `ip_hash`: escolhe backend baseado em hash do IP do cliente ou de um header configurado.
 - `IP_HASH_HEADER` — nome do header a ser usado para `ip_hash` (ex: `X-Forwarded-For`). Se vazio, usa `RemoteAddr`.
 
-Rate limiting
+## Rate limiting
 - `RATE_LIMIT_RPS` — taxa global (requests per second) por backend (0 = desabilitado).
 - `RATE_LIMIT_BURST` — burst do limiter (padrão 1).
 - `BACKEND_RATE_LIMITS` — opcional, define limites por backend na ordem da lista `BACKEND_URLS`.
   - Formato: `rps/burst,rps/burst,...` ou apenas `rps,rps`.
   - Exemplo: `BACKEND_RATE_LIMITS=10/5,0/0,2/1` — primeiro backend 10rps/5burst, segundo sem limit, terceiro 2rps/1burst.
 
-Exemplos práticos
+## Exemplos práticos
 
 1) Iniciar apenas como proxy (just distribute):
 
@@ -97,14 +97,36 @@ $env:IP_HASH_HEADER='X-Forwarded-For'
 ./main.exe
 ```
 
-Testes
+## Testes
 
 ```powershell
 go test ./domain -v
 ```
 
-Observações operacionais
+## Usando como módulo
+
+Se você preferir usar o load balancer como uma biblioteca em outro projeto, importe os pacotes usando o módulo público:
+
+```go
+import "github.com/Vime-Sistemas/vortice/domain"
+```
+
+Exemplo em `go.mod` do consumidor:
+
+```
+module your/project
+
+require github.com/Vime-Sistemas/vortice v0.0.0
+
+# se estiver desenvolvendo localmente, use replace:
+replace github.com/Vime-Sistemas/vortice => ../path/to/vortice
+```
+
+Exemplo de uso programático está em `examples/simple/main.go`.
+
+## Observações operacionais
 
 - Em produção, prefira manter `START_LOCAL_BACKENDS=false` e usar serviços dedicados para backends.
 - `ip_hash` depende do endereço remoto ou do header. Quando há proxies na frente, defina `IP_HASH_HEADER` adequadamente.
 - `BACKEND_RATE_LIMITS` é posicional — se preferir configuração por URL (map), posso adicionar suporte para `URL=RPS/BURST` no futuro.
+

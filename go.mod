@@ -1,4 +1,4 @@
-module vortice
+module github.com/Vime-Sistemas/vortice
 
 go 1.24.0
 

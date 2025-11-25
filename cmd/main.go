@@ -6,8 +6,9 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
-	"vortice/config"
-	"vortice/domain"
+
+	"github.com/Vime-Sistemas/vortice/config"
+	"github.com/Vime-Sistemas/vortice/domain"
 )
 
 func main() {
