@@ -236,7 +236,7 @@ func printStatsTable() {
 		return
 	}
 	w := tabwriter.NewWriter(os.Stdout, 0, 8, 2, ' ', 0)
-	fmt.Fprintln(w, "URL\tREQS\tAVG_MS\tMOST_PORT\tSTATUS_COUNTS")
+	fmt.Fprintln(w, "URL\tREQS\tAVG_MS\tFAIL%\tUPTIME%\tSTATUS_COUNTS")
 	// deterministic order
 	urls := make([]string, 0, len(snap))
 	for u := range snap {
@@ -263,7 +263,7 @@ func printStatsTable() {
 			scs += fmt.Sprintf("%d=%d", k, v)
 			first = false
 		}
-		fmt.Fprintf(w, "%s\t%d\t%.2f\t%s\t%s\n", s.URL, s.Requests, s.AvgLatencyMs, s.MostFamousPort, scs)
+		fmt.Fprintf(w, "%s\t%d\t%.2f\t%.2f\t%.2f\t%s\n", s.URL, s.Requests, s.AvgLatencyMs, s.FailureRatePct, s.UptimePct, scs)
 	}
 	_ = w.Flush()
 }

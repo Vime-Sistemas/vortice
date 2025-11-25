@@ -23,8 +23,13 @@ func TestRecordAndSnapshot(t *testing.T) {
 	if bs.StatusCounts[200] != 1 || bs.StatusCounts[500] != 1 {
 		t.Fatalf("unexpected status counts: %v", bs.StatusCounts)
 	}
-	if bs.MostFamousPort == "" {
-		t.Fatalf("expected a most famous port, got empty")
+	// Expect failure rate ~= 50% (1 failure out of 2)
+	if bs.FailureRatePct < 49.0 || bs.FailureRatePct > 51.0 {
+		t.Fatalf("expected failure rate ~50%%, got %.2f", bs.FailureRatePct)
+	}
+	// Uptime percentage should be between 0 and 100
+	if bs.UptimePct < 0.0 || bs.UptimePct > 100.0 {
+		t.Fatalf("unexpected uptime percent: %.2f", bs.UptimePct)
 	}
 }
 
@@ -43,7 +48,14 @@ func TestHandlerOutput(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
 		t.Fatalf("invalid json: %v", err)
 	}
-	if _, ok := out["http://localhost:8089"]; !ok {
+	bs, ok := out["http://localhost:8089"]
+	if !ok {
 		t.Fatalf("expected backend in output")
+	}
+	if bs.Requests != 1 {
+		t.Fatalf("expected 1 request, got %d", bs.Requests)
+	}
+	if bs.FailureRatePct < 0.0 || bs.FailureRatePct > 100.0 {
+		t.Fatalf("unexpected failure rate: %.2f", bs.FailureRatePct)
 	}
 }
