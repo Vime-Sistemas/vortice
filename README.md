@@ -2,7 +2,18 @@
 
 ## Visão geral
 
-Vortice é um pequeno load-balancer escrito em Go para uso em desenvolvimento e ambientes leves. Suporta vários algoritmos de distribuição (round-robin, least_conn, random, ip_hash), health checks, rate-limiting por backend e pode opcionalmente iniciar backends locais para testes.
+Vortice é um load-balancer escrito em Go, focado em simplicidade, testabilidade e uso em ambientes de desenvolvimento ou cargas leves. Ele fornece recursos que facilitam o desenvolvimento de aplicações distribuídas e testes locais.
+
+Features principais:
+- Algoritmos de balanceamento: `round_robin`, `least_conn`, `random`, `ip_hash`.
+- Health checks periódicos com configuração inicial imediata.
+- Rate limiting por backend (global e por-backend posicional).
+- Capacidade de iniciar backends locais embutidos para testes rápidos (`START_LOCAL_BACKENDS`).
+- `ip_hash` configurável para usar `RemoteAddr` ou um header (ex: `X-Forwarded-For`).
+- Handler de erro personalizável no proxy; respostas 503/429 quando aplicável.
+- API programática: `ServerPool` e `NewBackend` podem ser usadas como biblioteca em outros projetos.
+
+O objetivo é ser leve e simples de integrar em pipelines de desenvolvimento e testes, sem prescrição de infra.
 
 ## Build
 
