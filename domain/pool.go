@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/Vime-Sistemas/vortice/stats"
 )
 
 type ServerPool struct {
@@ -21,6 +23,8 @@ type ServerPool struct {
 
 func (s *ServerPool) AddBackend(b *Backend) {
 	s.backends = append(s.backends, b)
+	// register backend for stats collection
+	stats.RegisterBackend(b.URL.String())
 }
 
 func (s *ServerPool) GetNextPeer(r *http.Request) *Backend {
@@ -124,23 +128,45 @@ func (s *ServerPool) NextIndex() int {
 func (s *ServerPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	peer := s.GetNextPeer(r)
 
-	if peer != nil {
-		// rate limiting per backend
-		if peer.Limiter != nil {
-			if !peer.Limiter.Allow() {
-				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
-				return
-			}
-		}
-
-		// increment active connections and ensure decrement after serving
-		atomic.AddInt64(&peer.ConnCount, 1)
-		defer atomic.AddInt64(&peer.ConnCount, -1)
-
-		peer.ReverseProxy.ServeHTTP(w, r)
+	if peer == nil {
+		http.Error(w, "Serviço não disponível", http.StatusServiceUnavailable)
 		return
 	}
-	http.Error(w, "Serviço não disponível", http.StatusServiceUnavailable)
+
+	// rate limiting per backend
+	if peer.Limiter != nil {
+		if !peer.Limiter.Allow() {
+			http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
+	}
+
+	// increment active connections and ensure decrement after serving
+	atomic.AddInt64(&peer.ConnCount, 1)
+	defer atomic.AddInt64(&peer.ConnCount, -1)
+
+	// record start time and capture status
+	start := time.Now()
+	rw := &statusRecorder{ResponseWriter: w, status: 0}
+	peer.ReverseProxy.ServeHTTP(rw, r)
+	duration := time.Since(start)
+	status := rw.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	// record stats
+	stats.Record(peer.URL.String(), duration, status)
+}
+
+// statusRecorder wraps ResponseWriter to capture status code
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (s *statusRecorder) WriteHeader(code int) {
+	s.status = code
+	s.ResponseWriter.WriteHeader(code)
 }
 
 // HealthCheck loops through all backends and updates their status

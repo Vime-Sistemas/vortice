@@ -10,6 +10,7 @@ import (
 
 	"github.com/Vime-Sistemas/vortice/config"
 	"github.com/Vime-Sistemas/vortice/domain"
+	"github.com/Vime-Sistemas/vortice/stats"
 )
 
 // NewProxyPool creates a ServerPool configured with the provided backend URLs,
@@ -103,9 +104,14 @@ func main() {
 	go serverPool.StartHealthCheck()
 
 	port := ":" + config.GetAppPort()
+	// create a mux to expose stats endpoint and the proxy
+	mux := http.NewServeMux()
+	mux.Handle("/", serverPool)
+	mux.Handle("/stats", stats.Handler())
+
 	server := http.Server{
 		Addr:    port,
-		Handler: serverPool,
+		Handler: mux,
 	}
 
 	log.Printf("🌀 Vortice iniciado na porta %s", port)
