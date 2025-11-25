@@ -5,11 +5,33 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/Vime-Sistemas/vortice/config"
 	"github.com/Vime-Sistemas/vortice/domain"
 )
+
+// NewProxyPool creates a ServerPool configured with the provided backend URLs,
+// algorithm, per-backend rate limits and optional ip-hash header.
+func NewProxyPool(serverList []string, algo string, per [][2]int, ipHashHeader string) *domain.ServerPool {
+	pool := &domain.ServerPool{Algorithm: algo, IPHashHeader: ipHashHeader}
+	for i, u := range serverList {
+		// validate URL
+		if _, err := url.Parse(u); err != nil {
+			continue
+		}
+		rps := 0
+		burst := 1
+		if i < len(per) {
+			rps = per[i][0]
+			burst = per[i][1]
+		}
+		be := domain.NewBackend(u, rps, burst)
+		pool.AddBackend(be)
+	}
+	return pool
+}
 
 func main() {
 	// Load .env files (if present) so GetBackends reads configured values
@@ -68,21 +90,9 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	// create server pool with chosen algorithm and ip hash header
-	serverPool := &domain.ServerPool{Algorithm: config.GetLBAlgorithm(), IPHashHeader: config.GetIPHashHeader()}
-
-	// determine per-backend rate limits (overrides global when provided)
+	// create a ServerPool via helper so callers/tests can reuse it
 	per := config.GetPerBackendRateLimits(len(serverList))
-	for i, u := range serverList {
-		rps := 0
-		burst := 1
-		if i < len(per) {
-			rps = per[i][0]
-			burst = per[i][1]
-		}
-		be := domain.NewBackend(u, rps, burst)
-		serverPool.AddBackend(be)
-	}
+	serverPool := NewProxyPool(serverList, config.GetLBAlgorithm(), per, config.GetIPHashHeader())
 	log.Printf("Backends: %v", serverList)
 	// run an initial health check so we know status immediately
 	serverPool.HealthCheck()
