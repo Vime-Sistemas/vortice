@@ -8,6 +8,11 @@ import (
 )
 
 func main() {
+	// Load .env files (if present) so GetBackends reads configured values
+	if loaded := config.LoadEnv(); loaded != "" {
+		log.Printf("Loaded env file: %s", loaded)
+	}
+
 	serverList := config.GetBackends()
 
 	serverPool := &domain.ServerPool{}

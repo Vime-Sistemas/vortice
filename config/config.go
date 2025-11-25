@@ -1,12 +1,12 @@
 package config
 
 import (
-	"os"
-	"strings"
 	"bufio"
-	"log"
-	"path/filepath"
 	"io"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 // GetBackends retorna a lista de backends a partir da variável BACKEND_URLS (vírgula separada)
@@ -77,7 +77,7 @@ func loadFileToEnv(path string) error {
 				val := strings.TrimSpace(line[idx+1:])
 				// remove surrounding quotes if present
 				if len(val) >= 2 && ((val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'')) {
-					val = val[1:len(val)-1]
+					val = val[1 : len(val)-1]
 				}
 				os.Setenv(key, val)
 			}
