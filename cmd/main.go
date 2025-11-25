@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
+	"time"
 	"vortice/config"
 	"vortice/domain"
 )
@@ -63,10 +65,16 @@ func main() {
 		log.Printf("Backend local iniciados: %d, porta inicial: %d, tentados: %d", started, startPort, cnt)
 	}
 
-	serverPool := &domain.ServerPool{}
+	rand.Seed(time.Now().UnixNano())
+
+	// create server pool with chosen algorithm
+	serverPool := &domain.ServerPool{Algorithm: config.GetLBAlgorithm()}
+
+	rateRPS := config.GetRateLimitRPS()
+	burst := config.GetRateLimitBurst()
 
 	for _, u := range serverList {
-		be := domain.NewBackend(u)
+		be := domain.NewBackend(u, rateRPS, burst)
 		serverPool.AddBackend(be)
 	}
 	log.Printf("Backends: %v", serverList)

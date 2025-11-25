@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // Backend holds the data for a single server
@@ -14,10 +16,14 @@ type Backend struct {
 	ReverseProxy *httputil.ReverseProxy
 	Mux          sync.RWMutex
 	Alive        bool
+	// ConnCount é o número de conexões ativas (para least_conn)
+	ConnCount int64
+	// Limiter aplica rate limiting por backend (nil = sem rate limit)
+	Limiter *rate.Limiter
 }
 
 // NewBackend creates a new backend instance
-func NewBackend(serverUrl string) *Backend {
+func NewBackend(serverUrl string, rateRPS int, burst int) *Backend {
 	u, _ := url.Parse(serverUrl)
 	proxy := httputil.NewSingleHostReverseProxy(u)
 
@@ -26,10 +32,16 @@ func NewBackend(serverUrl string) *Backend {
 		w.Write([]byte("Backend indisponível"))
 	}
 
+	var limiter *rate.Limiter
+	if rateRPS > 0 {
+		limiter = rate.NewLimiter(rate.Limit(rateRPS), burst)
+	}
+
 	return &Backend{
 		URL:          u,
 		ReverseProxy: proxy,
 		Alive:        true,
+		Limiter:      limiter,
 	}
 }
 

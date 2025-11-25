@@ -1,8 +1,11 @@
 package domain
 
 import (
+	"hash/fnv"
 	"log"
+	"math/rand"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -10,26 +13,80 @@ import (
 type ServerPool struct {
 	backends []*Backend
 	current  uint64
+	// Algorithm pode ser: "round_robin", "least_conn", "random", "ip_hash"
+	Algorithm string
 }
 
 func (s *ServerPool) AddBackend(b *Backend) {
 	s.backends = append(s.backends, b)
 }
 
-func (s *ServerPool) GetNextPeer() *Backend {
-	next := s.NextIndex()
-	l := len(s.backends) + s.NextIndex()
-
-	for i := next; i < l; i++ {
-		idx := i % len(s.backends)
-		if s.backends[idx].IsAlive() {
-			if i != next {
-				atomic.StoreUint64(&s.current, uint64(idx))
-			}
-			return s.backends[idx]
-		}
+func (s *ServerPool) GetNextPeer(r *http.Request) *Backend {
+	if len(s.backends) == 0 {
+		return nil
 	}
-	return nil
+
+	switch strings.ToLower(s.Algorithm) {
+	case "least_conn":
+		// find alive backend with minimum ConnCount
+		var chosen *Backend
+		var min int64 = -1
+		for _, be := range s.backends {
+			if !be.IsAlive() {
+				continue
+			}
+			cnt := atomic.LoadInt64(&be.ConnCount)
+			if chosen == nil || cnt < min {
+				chosen = be
+				min = cnt
+			}
+		}
+		return chosen
+	case "random":
+		// pick a random alive backend
+		alive := make([]*Backend, 0, len(s.backends))
+		for _, be := range s.backends {
+			if be.IsAlive() {
+				alive = append(alive, be)
+			}
+		}
+		if len(alive) == 0 {
+			return nil
+		}
+		return alive[rand.Intn(len(alive))]
+	case "ip_hash":
+		// hash remote ip to pick backend
+		host := r.RemoteAddr
+		// remove port if present
+		if idx := strings.LastIndex(host, ":"); idx != -1 {
+			host = host[:idx]
+		}
+		h := fnv.New32a()
+		h.Write([]byte(host))
+		idx := int(h.Sum32()) % len(s.backends)
+		// find next alive starting from idx
+		for i := 0; i < len(s.backends); i++ {
+			j := (idx + i) % len(s.backends)
+			if s.backends[j].IsAlive() {
+				return s.backends[j]
+			}
+		}
+		return nil
+	default:
+		// round_robin (default)
+		next := s.NextIndex()
+		l := len(s.backends) + s.NextIndex()
+		for i := next; i < l; i++ {
+			idx := i % len(s.backends)
+			if s.backends[idx].IsAlive() {
+				if i != next {
+					atomic.StoreUint64(&s.current, uint64(idx))
+				}
+				return s.backends[idx]
+			}
+		}
+		return nil
+	}
 }
 
 func (s *ServerPool) NextIndex() int {
@@ -37,9 +94,21 @@ func (s *ServerPool) NextIndex() int {
 }
 
 func (s *ServerPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	peer := s.GetNextPeer()
+	peer := s.GetNextPeer(r)
 
 	if peer != nil {
+		// rate limiting per backend
+		if peer.Limiter != nil {
+			if !peer.Limiter.Allow() {
+				http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
+				return
+			}
+		}
+
+		// increment active connections and ensure decrement after serving
+		atomic.AddInt64(&peer.ConnCount, 1)
+		defer atomic.AddInt64(&peer.ConnCount, -1)
+
 		peer.ReverseProxy.ServeHTTP(w, r)
 		return
 	}

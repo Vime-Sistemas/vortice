@@ -122,3 +122,31 @@ func GetLocalBackendForce() bool {
 	v := os.Getenv("LOCAL_BACKEND_FORCE")
 	return strings.EqualFold(v, "true")
 }
+
+// GetLBAlgorithm retorna o algoritmo de balanceamento. Valores suportados: "round_robin", "least_conn", "random", "ip_hash".
+func GetLBAlgorithm() string {
+	if s := os.Getenv("LOAD_BALANCER_ALGO"); s != "" {
+		return strings.ToLower(s)
+	}
+	return "round_robin"
+}
+
+// GetRateLimitRPS retorna o rate limit em requisições por segundo (0 = disabled)
+func GetRateLimitRPS() int {
+	if s := os.Getenv("RATE_LIMIT_RPS"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			return v
+		}
+	}
+	return 0
+}
+
+// GetRateLimitBurst retorna o burst para o rate limiter (default 1)
+func GetRateLimitBurst() int {
+	if s := os.Getenv("RATE_LIMIT_BURST"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			return v
+		}
+	}
+	return 1
+}
