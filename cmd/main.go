@@ -16,6 +16,10 @@ func main() {
 		be := domain.NewBackend(u)
 		serverPool.AddBackend(be)
 	}
+	log.Printf("Backends configurados: %v", serverList)
+	if len(serverList) == 0 {
+		log.Println("Aviso: nenhum backend configurado; o proxy responderá 503 até que backends sejam adicionados.")
+	}
 
 	go serverPool.StartHealthCheck()
 

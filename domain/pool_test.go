@@ -22,7 +22,7 @@ func TestServerPool_GetNextPeer(t *testing.T) {
 
 	peer := pool.GetNextPeer()
 	if peer != b1 && peer != b2 && peer != b3 {
-		t.Error("Should return a backend")
+		t.Error("Deveria retornar um backend válido")
 	}
 
 	// Ensure we get different peers (simple distribution check)
@@ -48,10 +48,10 @@ func TestServerPool_SkipDeadServer(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		peer := pool.GetNextPeer()
 		if peer == b2 {
-			t.Error("Balancer returned a dead backend")
+			t.Error("Balancer retornou um backend inativo")
 		}
 		if peer == nil {
-			t.Error("Balancer returned nil even though 2 servers are alive")
+			t.Error("Balancer retornou nil mesmo com 2 servidores ativos")
 		}
 	}
 }
@@ -64,6 +64,6 @@ func TestServerPool_AllDead(t *testing.T) {
 
 	peer := pool.GetNextPeer()
 	if peer != nil {
-		t.Error("Should return nil when all backends are dead")
+		t.Error("Deveria retornar nil quando todos os backends estiverem inativos")
 	}
 }

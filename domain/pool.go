@@ -43,17 +43,17 @@ func (s *ServerPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		peer.ReverseProxy.ServeHTTP(w, r)
 		return
 	}
-	http.Error(w, "Service not available", http.StatusServiceUnavailable)
+	http.Error(w, "Serviço não disponível", http.StatusServiceUnavailable)
 }
 
 // HealthCheck loops through all backends and updates their status
 func (s *ServerPool) HealthCheck() {
 	for _, b := range s.backends {
-		status := "up"
+		status := "ativo"
 		alive := b.CheckHealth()
 		b.SetAlive(alive)
 		if !alive {
-			status = "down"
+			status = "inativo"
 		}
 		log.Printf("%s [%s]", b.URL, status)
 	}
@@ -65,9 +65,9 @@ func (s *ServerPool) StartHealthCheck() {
 	for {
 		select {
 		case <-t.C:
-			log.Println("Starting health check...")
+			log.Println("Iniciando verificação de saúde...")
 			s.HealthCheck()
-			log.Println("Health check completed")
+			log.Println("Verificação de saúde concluída")
 		}
 	}
 }

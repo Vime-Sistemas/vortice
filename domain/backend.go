@@ -23,7 +23,7 @@ func NewBackend(serverUrl string) *Backend {
 
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, e error) {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write([]byte("Backend unavailable"))
+		w.Write([]byte("Backend indisponível"))
 	}
 
 	return &Backend{

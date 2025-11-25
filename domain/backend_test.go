@@ -12,13 +12,13 @@ func TestBackend_SetAlive(t *testing.T) {
 
 	// Default should be true
 	if !b.IsAlive() {
-		t.Error("New backend should be alive by default")
+		t.Error("Novo backend deveria estar ativo por padrão")
 	}
 
 	// Test SetAlive
 	b.SetAlive(false)
 	if b.IsAlive() {
-		t.Error("Backend should be dead after SetAlive(false)")
+		t.Error("Backend deveria estar inativo após SetAlive(false)")
 	}
 }
 
@@ -35,13 +35,13 @@ func TestBackend_CheckHealth(t *testing.T) {
 
 	// 3. Should return true
 	if !b.CheckHealth() {
-		t.Errorf("Backend should be healthy connecting to %s", server.URL)
+		t.Errorf("Backend deveria estar saudável conectando a %s", server.URL)
 	}
 
 	// 4. Test a fake port (should fail)
 	deadBackend := NewBackend("http://localhost:9999")
 	if deadBackend.CheckHealth() {
-		t.Error("Backend should be unhealthy for dead port")
+		t.Error("Backend deveria estar inativo para porta morta")
 	}
 }
 
@@ -63,10 +63,10 @@ func TestReverseProxy_Success(t *testing.T) {
 
 	// verify response forwarded from backend
 	if rr.Code != 202 {
-		t.Errorf("expected status 202, got %d", rr.Code)
+		t.Errorf("esperado status %d, obtido %d", 202, rr.Code)
 	}
 	if rr.Body.String() != "ok-backend" {
-		t.Errorf("expected body %q, got %q", "ok-backend", rr.Body.String())
+		t.Errorf("esperado corpo %q, obtido %q", "ok-backend", rr.Body.String())
 	}
 }
 
@@ -80,10 +80,10 @@ func TestReverseProxy_ErrorHandler(t *testing.T) {
 
 	// ErrorHandler should write 503 and the specific message
 	if rr.Code != http.StatusServiceUnavailable {
-		t.Errorf("expected status %d, got %d", http.StatusServiceUnavailable, rr.Code)
+		t.Errorf("esperado status %d, obtido %d", http.StatusServiceUnavailable, rr.Code)
 	}
-	expectedBody := "Backend unavailable"
+	expectedBody := "Backend indisponível"
 	if rr.Body.String() != expectedBody {
-		t.Errorf("expected body %q, got %q", expectedBody, rr.Body.String())
+		t.Errorf("esperado corpo %q, obtido %q", expectedBody, rr.Body.String())
 	}
 }
