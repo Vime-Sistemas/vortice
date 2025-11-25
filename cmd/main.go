@@ -3,15 +3,12 @@ package main
 import (
 	"log"
 	"net/http"
+	"vortice/config"
 	"vortice/domain"
 )
 
 func main() {
-	serverList := []string{
-		"http://localhost:8081",
-		"http://localhost:8082",
-		"http://localhost:8083",
-	}
+	serverList := config.GetBackends()
 
 	serverPool := &domain.ServerPool{}
 
@@ -22,13 +19,13 @@ func main() {
 
 	go serverPool.StartHealthCheck()
 
-	port := ":8080"
+	port := ":" + config.GetAppPort()
 	server := http.Server{
 		Addr:    port,
 		Handler: serverPool,
 	}
 
-	log.Printf("🌀 Vortice Load Balancer started on port %s", port)
+	log.Printf("🌀 Vortice iniciado na porta %s", port)
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}

@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -49,13 +48,12 @@ func (b *Backend) IsAlive() bool {
 
 // CheckHealth attempts to dial the server to see if it responds
 func (b *Backend) CheckHealth() bool {
-	timeout := 2 * time.Second
-	conn, err := net.DialTimeout("tcp", b.URL.Host, timeout)
+	client := http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(b.URL.String())
 	if err != nil {
-		// If connection fails, log it (optional) and return false
 		return false
 	}
-	// If successful, close connection and return true
-	_ = conn.Close()
-	return true
+	defer resp.Body.Close()
+	// consider healthy any 2xx or 3xx response
+	return resp.StatusCode >= 200 && resp.StatusCode < 400
 }
